@@ -2,4 +2,7 @@
 .idea/
 
 # Local config file.
-CU_Series/demo/clock_config_local.py
+vfd_info/vfd_info_config_local.py
+
+# Temporary dev directory.
+dev

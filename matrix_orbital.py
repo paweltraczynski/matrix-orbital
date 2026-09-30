@@ -99,7 +99,6 @@ class MatrixOrbital:
     # |                  WRITING COMMANDS                   |
     # '-----------------------------------------------------'
 
-    # TODO: Test this.
     def write(self, data):
         """
         Universal write method for text strings and commands.
@@ -109,15 +108,15 @@ class MatrixOrbital:
         if isinstance(data, str):
             self.bus.write(data.encode())
 
-        elif isinstance(data, (list, tuple, bytes, bytearray)):
-            for byte in data:
-                self.bus.write(byte)
-
-        elif isinstance(data, int):
+        elif isinstance(data, bytes):
             self.bus.write(data)
 
+        elif isinstance(data, (list, tuple, bytearray)):
+            for byte in data:
+                self.bus.write(bytes([byte]))
+
         else:
-            raise TypeError('Unsupported data type for write().')
+            self.bus.write(bytes([data]))
 
     # TODO: Test this.
     def writeCommand(self, command_bytes):
@@ -139,7 +138,6 @@ class MatrixOrbital:
         """
         self.bus.write(str(data).encode())
 
-    # TODO: Test this.
     def writeCustomChar(self, slot, char_map, remember = False):
         """
         "Writes a custom character to one of the 8 CGRAM locations.
@@ -175,7 +173,6 @@ class MatrixOrbital:
         command.extend(char_map)
         self.writeCommand(command)
 
-    # TODO: Test this,
     def writeNamedChar(self, name):
         """
         Writes a named character on the display at the cursor position.
@@ -192,7 +189,6 @@ class MatrixOrbital:
     # |                 NAVIGATION COMMANDS                 |
     # '-----------------------------------------------------'
 
-    # TODO: Test this.
     def setCursor(self, column, row):
         """
         Puts the cursor at the specified column and row.
@@ -260,7 +256,6 @@ class MatrixOrbital:
         else:
             self.writeCommand(self.turn_off_underline_cursor)
 
-    # TODO: Test this.
     def blockCursor(self, enable):
         """
         Enables or disables the blinking block cursor.
@@ -274,7 +269,6 @@ class MatrixOrbital:
         else:
             self.writeCommand(self.turn_off_block_cursor)
 
-    # TODO: Test this.
     def clearDisplay(self):
         """
         Clears the display and moves the cursor to the home position.
@@ -283,7 +277,6 @@ class MatrixOrbital:
         """
         self.writeCommand(self.clear_display)
 
-    # TODO: Test this.
     def displayOnOff(self, on_off):
         """
         Turns the display on or off.
@@ -297,7 +290,6 @@ class MatrixOrbital:
         else:
             self.writeCommand(self.display_off)
 
-    # TODO: Test this.
     def setBrightness(self, brightness, remember = False):
         """
         Sets brightness level (1-4).
