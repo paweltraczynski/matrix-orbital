@@ -22,7 +22,9 @@ class VfdInfo:
     :param lines: The number of lines on the display.
     :param cols: The number of columns on the display.
     :param dht_pin: The number of the DHT22 sensor pin.
+      Leave blank if you have not connected the sensor.
     :param button_pin: The number of the button pin.
+      Leave blank if you have not connected the button.
     """
 
     def __init__(self, mo, lines, cols, dht_pin = None, button_pin = None):
@@ -41,7 +43,7 @@ class VfdInfo:
             self.sensor = None
 
         # Button for changing the brightness.
-        if button_pin:
+        if button_pin is not None:
             self.button = Pin(button_pin, Pin.IN, Pin.PULL_UP)
         else:
             self.button = None
@@ -85,19 +87,12 @@ class VfdInfo:
             'success': False,
         }
 
-        # Indoor temperature and humidity fetching.
-        # 1-minute interval converted to milliseconds.
-        self.indoor_last_fetch =  None
-        self.indoor_fetch_interval = 60 * 1000
-
         # Failed API requests are retried after one minute.
         self.api_retry_interval = 60 * 1000
         self.api_timeout = 10
 
-        # Track last displayed data.
-        # This is used to prevent writing to the VFD when the time
-        # or weather did not change.
-        # TODO: Use these to control writes.
+        # Track last displayed values.
+        # This is used to prevent writing to the VFD data did not change.
         self.displayed_time = None
         self.displayed_temperature = None
         self.displayed_humidity = None
@@ -105,11 +100,20 @@ class VfdInfo:
         self.displayed_indoor_temperature = None
         self.displayed_indoor_humidity = None
 
-        # Current power status (on, dimed, off).
-        self.power_status = 'on'
+        # Track the last time when values were displayed.
+        # This is used to prevent calling print methods more
+        # often than necessary.
+        self.last_indoor = None
+        self.last_weather = None
+        self.last_indoor = None
 
+        # Track brightness.
+        # Current brightness status (on, dimed, off).
+        self.brightness_status = 'on'
         # Last user set brightness.
-        self.brightness_last = 4
+        self.brightness_set = 4
+        # Brightness changing button last pressed time.
+        self.brightness_button = None
 
         # Download icon tracking.
         self.download_icon_start = True
@@ -208,14 +212,14 @@ class VfdInfo:
         """
         Continuously changes the brightness by 1 brightness level.
         """
-        # Each time the brightness is decreased by 1.
-        brightness = self.brightness_last - 1
+        # Each time the brightness gets decreased by 1.
+        brightness = self.brightness_set - 1
 
         # After reaching the minimum brightness, reset to maximum.
-        if brightness == 0:
+        if brightness < 1:
             brightness = 4
 
-        self.brightness_last = brightness
+        self.brightness_set = brightness
         self.mo.setBrightness(brightness)
 
     def fetchDateTime(self):
@@ -334,38 +338,59 @@ class VfdInfo:
         """
         Prints the current time on the display.
         """
-        now = self.getDateTime()
+        current_ticks = time.ticks_ms()
 
-        # TODO: Don't update the displayed time if it hasn't changed.
-        # Print the time if it was fetched.
-        if now['year'] != 0:
-            hour = str(now['hour'])
-            minute = str(now['minute'])
+        # Don't print time more often than every 0.2 seconds.
+        if self.last_indoor is not None and time.ticks_diff(current_ticks, self.last_indoor) < 200:
+            return
 
-            self.digits.largeDigit(hour[0], 10)
-            self.digits.largeDigit(hour[1], 13)
-            self.digits.largeDigit(minute[0], 16)
-            self.digits.largeDigit(minute[1], 19)
-            self.mo.setCursor(18, 4)
-            self.mo.write(":{0}".format(now['second']))
+        self.last_indoor = current_ticks
 
-            # Blinking colon between hours and minutes.
-            if now['timestamp'] % 2 == 0:
-                self.digits.largeDigit('colon', 15)
-            else:
-                self.digits.largeDigit('erase_colon', 15)
+        # Get date and time.
+        date = self.getDateTime()
 
-        # Clear the time when fetch failed.
+        # Print the time if it is set.
+        if date['year'] != 0:
+            time_formatted = '{hour}:{minute}:{second}'.format(
+                hour = date['hour'],
+                minute = date['minute'],
+                second = date['second']
+            )
+
+            # Do so only if it has changed since the last print.
+            if self.displayed_time != time_formatted:
+                hour = str(date['hour'])
+                minute = str(date['minute'])
+
+                self.digits.largeDigit(hour[0], 10)
+                self.digits.largeDigit(hour[1], 13)
+                self.digits.largeDigit(minute[0], 16)
+                self.digits.largeDigit(minute[1], 19)
+                self.mo.setCursor(18, 4)
+                self.mo.write(":{0}".format(date['second']))
+
+                self.displayed_time = time_formatted
+
+                # Blinking colon between hours and minutes.
+                if date['timestamp'] % 2 == 0:
+                    self.digits.largeDigit('colon', 15)
+                else:
+                    self.digits.largeDigit('erase_colon', 15)
+
+        # If time is not set, then print dashes and static colon.
         else:
-            self.digits.largeDigit('dash', 10)
-            self.digits.largeDigit('dash', 13)
-            self.digits.largeDigit('dash', 16)
-            self.digits.largeDigit('dash', 19)
-            self.mo.setCursor(18, 4)
-            self.mo.write(':--')
+            if self.displayed_time != '-':
+                self.digits.largeDigit('dash', 10)
+                self.digits.largeDigit('dash', 13)
+                self.digits.largeDigit('dash', 16)
+                self.digits.largeDigit('dash', 19)
+                self.mo.setCursor(18, 4)
+                self.mo.write(':--')
 
-            # Static colon when time is not known.
-            self.mo.largeDigit('colon', 15)
+                self.displayed_time = '-'
+
+                # Static colon when time is not known.
+                self.digits.largeDigit('colon', 15)
 
     def fetchWeather(self):
         """
@@ -487,56 +512,71 @@ class VfdInfo:
         return self.weather
 
     def printWeather(self):
+        current_ticks = time.ticks_ms()
+
+        # Don't print weather more often than 30 seconds.
+        if self.last_weather is not None and time.ticks_diff(current_ticks, self.last_weather) < 30 * 1000:
+            return
+
+        self.last_weather = current_ticks
+
+        # Get weather data.
         weather = self.getWeather()
 
-        # TODO: Don't update the displayed weather if it hasn't changed.
         # Print weather if it was fetched.
         if weather['success']:
             temperature = weather['temperature']
             humidity = weather['humidity']
             conditions = weather['conditions']
 
-            # Temperature should always include 1 fraction digit.
-            temperature = '{0:.1f}'.format(temperature)
-            # Outdoor temperature should always occupy 5 characters, e.g. -15.5.
-            temperature = '{:>5}'.format(temperature)
+            # Temperature should always include 1 fraction digit
+            # occupying 5 characters because it can, for example, be '-15.5'.
+            temperature = '{:>5.1f}'.format(temperature)
 
-            # Humidity should never be more than 99% because of available space.
+            # Humidity should be rounded and always in range of 0-99,
+            # and also always 2 characters. It should never be more
+            # than 99% because of available space.
             if humidity > 99:
                 humidity = 99
             humidity = '{:>2}'.format(humidity)
 
             # Print temperature.
-            self.mo.setCursor(3, 3)
-            self.mo.write(temperature)
+            if self.displayed_temperature != temperature:
+                self.mo.setCursor(3, 3)
+                self.mo.write(temperature)
+                self.displayed_temperature = temperature
 
             # Print humidity.
-            self.mo.setCursor(14, 4)
-            self.mo.write(humidity + '%')
+            if self.displayed_humidity != humidity:
+                self.mo.setCursor(14, 4)
+                self.mo.write(humidity)
+                self.displayed_humidity = humidity
 
             # Print icon for indicating weather conditions.
-            self.mo.setCursor(3, 4)
+            if self.displayed_conditions != conditions:
+                self.mo.setCursor(3, 4)
+                self.displayed_conditions = conditions
 
-            # Clouds.
-            if conditions == 'Clouds':
-                self.mo.writeNamedChar('circle_fill')
-            # Rain.
-            elif conditions == 'Rain' or conditions == 'Thunderstorm':
-                self.mo.writeByte(0xd9)
-            # Snow.
-            elif conditions == 'Snow':
-                self.mo.write('*')
-            # Sunny.
-            else:
-                self.mo.writeNamedChar('circle_stroke')
+                # Clouds.
+                if conditions == 'Clouds':
+                    self.mo.writeNamedChar('circle_fill')
+                # Rain.
+                elif conditions == 'Rain' or conditions == 'Thunderstorm':
+                    self.mo.writeByte(0xd9)
+                # Snow.
+                elif conditions == 'Snow':
+                    self.mo.write('*')
+                # Sunny.
+                else:
+                    self.mo.writeNamedChar('circle_stroke')
 
-        # Clear weather when fetch failed.
+        # Clear weather when the fetching has failed.
         else:
             self.mo.setCursor(3, 3)
             self.mo.write(' --.-')
             self.mo.setCursor(14, 4)
-            self.mo.write('--%')
-            self.mo.setCursor(8, 4)
+            self.mo.write('--')
+            self.mo.setCursor(3, 4)
             self.mo.write('-')
 
     def printIndoorTemp(self):
@@ -545,42 +585,39 @@ class VfdInfo:
 
         This function relies on the presence of the DHT22 sensor.
         """
+        current_ticks = time.ticks_ms()
+
+        # Don't print indoor temperature more often than every 30 seconds.
+        if self.last_indoor is not None and time.ticks_diff(current_ticks, self.last_indoor) < 30 * 1000:
+            return
+
+        self.last_indoor = current_ticks
+
         if self.sensor:
-            current_ticks = time.ticks_ms()
+            try:
+                self.sensor.measure()
+                temperature = round(self.sensor.temperature(), 1)
+                humidity = round(self.sensor.humidity())
 
-            if (
-                (self.indoor_last_fetch is None) or
-                (time.ticks_diff(current_ticks, self.indoor_last_fetch)
-                 >= self.indoor_fetch_interval)
-            ):
+            # If the DHT22 sensor cannot be read, then return.
+            # Most probably the sensor is not connected.
+            except Exception as e:
+                print(f"Error reading DHT22 sensor data: {e}")
+                return
 
-                try:
-                    self.sensor.measure()
-                    temperature = round(self.sensor.temperature(), 1)
-                    humidity = round(self.sensor.humidity())
+            # Indoor temperature should always include 1 fraction digit
+            # occupying 4 characters because it can, for example, be '23.5'.
+            temperature = '{:>4.1f}'.format(temperature)
 
-                # If the DHT22 sensor cannot be read, then return.
-                # Most probably the sensor is not connected.
-                except Exception as e:
-                    print(f"Error reading DHT22 sensor data: {e}")
-                    return
+            # Humidity should never be more than 99% because of available space.
+            if humidity > 99:
+                humidity = 99
+            humidity = '{:>2}'.format(humidity)
 
-                # Temperature should always include 1 fraction digit.
-                temperature = '{0:.1f}'.format(temperature)
-                # Indoor temperature should always occupy 4 characters.
-                temperature = '{:>4}'.format(temperature)
-
-                # Humidity should never be more than 99% because of available space.
-                if humidity > 99:
-                    humidity = 99
-                humidity = '{:>2}'.format(humidity)
-
-                self.mo.setCursor(4, 1)
-                self.mo.write(temperature)
-                self.mo.setCursor(10, 4)
-                self.mo.write(humidity)
-
-                self.indoor_last_fetch = current_ticks
+            self.mo.setCursor(4, 1)
+            self.mo.write(temperature)
+            self.mo.setCursor(10, 4)
+            self.mo.write(humidity)
 
     def screenInit(self):
         """
@@ -652,19 +689,41 @@ class VfdInfo:
                 self.download_icon_start = False
 
             # Handle brightness button.
-
+            if self.button is not None:
+                if self.button.value() == 0:
+                    if self.brightness_button is None:
+                        self.brightness_button = ticks_ms
+                else:
+                    if self.brightness_button is not None:
+                        if time.ticks_diff(ticks_ms, self.brightness_button) >= 100:
+                            self.changeBrightness()
+                            self.brightness_button = None
 
             # Update night/day brightness.
+            date = self.getDateTime()
+            if date['year'] != 0:
+                hour = date['hour_int']
 
+                # Off hours.
+                if (hour >= config.display_off_start_hour or hour < config.display_off_end_hour) and self.brightness_status != 'off':
+                    self.mo.displayOnOff(0)
+                    self.brightness_status = 'off'
+
+                # Dim hours.
+                elif (hour >= config.display_dim_start_hour or hour < config.display_dim_end_hour) and self.brightness_status != 'dim':
+                    self.mo.displayOnOff(1)
+                    self.mo.setBrightness(1)
+                    self.brightness_status = 'dim'
+
+                # On hours.
+                elif self.brightness_status != 'on':
+                    self.mo.displayOnOff(1)
+                    self.mo.setBrightness(self.brightness_set)
+                    self.brightness_status = 'on'
 
             # Reconnect Wi-Fi if needed.
             if not self.wlan.isconnected():
                 self.connectWifi()
-
-            self.mo.setBrightness(1)
-            time.sleep(1)
-            self.mo.setBrightness(4)
-            time.sleep(1)
 
             # Wait.
             time.sleep(0.1)

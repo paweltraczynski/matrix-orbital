@@ -31,7 +31,6 @@ class VfdInfoDigits:
         # Colon.
         disp.writeCustomChar(6, [0x00, 0x00, 0x00, 0x00, 0x0E, 0x0E, 0x0E, 0x00])
 
-    # TODO: Test this.
     def largeDigit(self, digit, column, row = 1):
         """
         Prints a selected large digit at a specified position on the display.
