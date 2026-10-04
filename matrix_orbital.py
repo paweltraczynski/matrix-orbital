@@ -80,7 +80,7 @@ class MatrixOrbital:
         self.remember_pwm_base_frequency = 0xc5  # [index]
 
         # Miscellaneous commands.
-        self.remember = 0x93  # [0/1]
+        self.remember_command = 0x93  # [0/1]
         self.clear_display = 0x58
         self.set_brightness = 0x59  # [0x00 to 0x03]
         self.set_brightness_and_save = 0x98  # [0x00 to 0x03]
@@ -455,6 +455,7 @@ class MatrixOrbital:
         else:
             self.writeCommand([
                 self.general_purpose_output_off,
+                gpo_ids[gpo],
             ])
 
     # TODO: Implement these?
@@ -468,12 +469,12 @@ class MatrixOrbital:
     def remember(self, enable):
         if enable:
             self.writeCommand([
-                self.remember,
+                self.remember_command,
                 0x01,
             ])
         else:
             self.writeCommand([
-                self.remember,
+                self.remember_command,
                 0x00,
             ])
 

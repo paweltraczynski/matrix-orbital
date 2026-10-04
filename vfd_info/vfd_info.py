@@ -51,19 +51,16 @@ class VfdInfo:
         # RTC used by the clock feature.
         self.rtc = RTC()
 
-        # WLAN.
+        # Wi-Fi.
         self.wlan = network.WLAN(network.STA_IF)
         self.ssid = config.wifi_ssid
         self.password = config.wifi_password
+        self.wifi_last_attempt = None
+        self.wifi_retry_interval = 10 * 1000
 
         # Time settings.
         self.timeapi_api_key = config.time_api_key
         self.timezone = config.time_timezone
-
-        # Weather settings.
-        self.weather_api_key = config.weather_api_key
-        self.weather_city = config.weather_city
-        self.weather_unit = config.weather_unit
 
         # Time fetching.
         # Stores the last date synchronization time in ms.
@@ -71,6 +68,11 @@ class VfdInfo:
         self.date_last_attempt = None
         # 6-hour interval converted to milliseconds.
         self.date_fetch_interval = 6 * 60 * 60 * 1000
+
+        # Weather settings.
+        self.weather_api_key = config.weather_api_key
+        self.weather_city = config.weather_city
+        self.weather_unit = config.weather_unit
 
         # Weather fetching.
         # Stores the last weather synchronization time in ms.
@@ -103,7 +105,7 @@ class VfdInfo:
         # Track the last time when values were displayed.
         # This is used to prevent calling print methods more
         # often than necessary.
-        self.last_indoor = None
+        self.last_time = None
         self.last_weather = None
         self.last_indoor = None
 
@@ -115,7 +117,7 @@ class VfdInfo:
         # Brightness changing button last pressed time.
         self.brightness_button = None
 
-        # Download icon tracking.
+        # Track download icon.
         self.download_icon_start = True
         self.download_icon_shown = False
         self.download_icon_time = 0
@@ -124,57 +126,79 @@ class VfdInfo:
         """
         Connects to the Wi-Fi network, retries if the SSID is unavailable.
         """
+        current_ticks = time.ticks_ms()
+
+        # Do not retry connecting more often than the configured interval.
+        if (
+            self.wifi_last_attempt is not None and
+            time.ticks_diff(current_ticks, self.wifi_last_attempt)
+            < self.wifi_retry_interval
+        ):
+            return False
+
+        self.wifi_last_attempt = current_ticks
         self.wlan.active(True)
 
         # Indicate no Wi-Fi connection by settings the connection icon.
         self.mo.setCursor(0, 4)
         self.mo.write(self.mo.getNamedCharacter('not_equal'))
 
-        while not self.wlan.isconnected():
-            # Initiate a Wi-Fi connection.
+        # Initiate a Wi-Fi connection.
+        try:
+            self.wlan.connect(self.ssid, self.password)
+        except OSError:
+            return False
+
+        # Give this attempt up to 10 seconds.
+        for _ in range(10):
+            if self.wlan.isconnected():
+                break
+            time.sleep(1)
+
+        # Because up to 10 seconds might have passed, update the last attempt.
+        self.wifi_last_attempt = time.ticks_ms()
+
+        # If the connection failed, then try to disconnect before retrying.
+        if not self.wlan.isconnected():
             try:
-                self.wlan.connect(self.ssid, self.password)
+                self.wlan.disconnect()
             except OSError:
                 pass
 
-            # Give this attempt up to 10 seconds.
-            for _ in range(10):
-                if self.wlan.isconnected():
-                    break
-                time.sleep(1)
-
-            # If the connection failed, then try to disconnect before retrying.
-            if not self.wlan.isconnected():
-                try:
-                    self.wlan.disconnect()
-                except OSError:
-                    pass
-
-                print('Wi-Fi unavailable; retrying...')
+            print('Wi-Fi unavailable; retrying...')
+            return False
 
         # At this point, the connection has been established.
         self.mo.setCursor(0, 4)
         self.mo.write(self.mo.getNamedCharacter('graph'))
 
         print('Established Wi-Fi connection.')
+        return True
 
-    def urlEncode(self, string):
-       """
-       Encodes a string to be used in a URL.
+    def urlEncode(self, value):
+        """
+        Encodes a string to be used in a URL.
 
-       :param string: The string to encode.
+        :param value: The string to encode.
 
-       :return: The encoded string.
-       """
-       encoded_string = ''
+        :return: The encoded string.
+        """
+        encoded = []
 
-       for character in str(string):
-           if character.isalpha() or character.isdigit():
-               encoded_string += character
-           else:
-               encoded_string += f"%{ord(character):x}"
+        for byte in str(value).encode('utf-8'):
+            is_unreserved = (
+                ord('A') <= byte <= ord('Z') or
+                ord('a') <= byte <= ord('z') or
+                ord('0') <= byte <= ord('9') or
+                byte in (ord('-'), ord('.'), ord('_'), ord('~'))
+            )
 
-       return encoded_string
+            if is_unreserved:
+                encoded.append(chr(byte))
+            else:
+                encoded.append('%{:02X}'.format(byte))
+
+        return ''.join(encoded)
 
     def urlGetJson(self, url, params = None):
         """
@@ -208,6 +232,24 @@ class VfdInfo:
 
         return False
 
+    def checkHourInRange(self, hour, start, end):
+        """
+        Checks if the given hour is in the given range.
+
+        :param hour: The hours to check, e.g., 3 or 22.
+        :param start: The start hour of the range.
+        :param end: The end hour of the range.
+
+        :return: True if the hour is in the range, False otherwise.
+        """
+        if start == end:
+            return False
+
+        if start < end:
+            return start <= hour < end
+
+        return hour >= start or hour < end
+
     def changeBrightness(self):
         """
         Continuously changes the brightness by 1 brightness level.
@@ -220,7 +262,9 @@ class VfdInfo:
             brightness = 4
 
         self.brightness_set = brightness
-        self.mo.setBrightness(brightness)
+
+        if self.brightness_status == 'on':
+            self.mo.setBrightness(brightness)
 
     def fetchDateTime(self):
         """
@@ -238,6 +282,7 @@ class VfdInfo:
         }
 
         self.date_last_attempt = time.ticks_ms()
+        response = None
 
         try:
             # Send the GET request with the required headers.
@@ -281,6 +326,8 @@ class VfdInfo:
                 return False
 
         except Exception as e:
+            if hasattr(response, 'close'):
+                response.close()
             print('Date and time synchronization error:', e)
             return False
 
@@ -341,10 +388,10 @@ class VfdInfo:
         current_ticks = time.ticks_ms()
 
         # Don't print time more often than every 0.2 seconds.
-        if self.last_indoor is not None and time.ticks_diff(current_ticks, self.last_indoor) < 200:
+        if self.last_time is not None and time.ticks_diff(current_ticks, self.last_time) < 200:
             return
 
-        self.last_indoor = current_ticks
+        self.last_time = current_ticks
 
         # Get date and time.
         date = self.getDateTime()
@@ -464,7 +511,7 @@ class VfdInfo:
 
             if weather and isinstance(weather, dict):
                 temperature = round(weather['main']['temp'], 1)
-                humidity = round(weather['main']['humidity'], 0)
+                humidity = round(weather['main']['humidity'])
                 conditions = weather['weather'][0]['main']
                 success = True
 
@@ -562,7 +609,7 @@ class VfdInfo:
                     self.mo.writeNamedChar('circle_fill')
                 # Rain.
                 elif conditions == 'Rain' or conditions == 'Thunderstorm':
-                    self.mo.writeByte(0xd9)
+                    self.mo.write(0xd9)
                 # Snow.
                 elif conditions == 'Snow':
                     self.mo.write('*')
@@ -572,12 +619,20 @@ class VfdInfo:
 
         # Clear weather when the fetching has failed.
         else:
+            # Print temperature.
             self.mo.setCursor(3, 3)
             self.mo.write(' --.-')
+            self.displayed_temperature = ' --.-'
+
+            # Print humidity.
             self.mo.setCursor(14, 4)
             self.mo.write('--')
+            self.displayed_humidity = '--'
+
+            # Print icon for indicating weather conditions.
             self.mo.setCursor(3, 4)
             self.mo.write('-')
+            self.displayed_conditions = '-'
 
     def printIndoorTemp(self):
         """
@@ -704,16 +759,30 @@ class VfdInfo:
             if date['year'] != 0:
                 hour = date['hour_int']
 
+                off_hours = self.checkHourInRange(
+                    hour,
+                    config.display_off_start_hour,
+                    config.display_off_end_hour
+                )
+
+                dim_hours = self.checkHourInRange(
+                    hour,
+                    config.display_dim_start_hour,
+                    config.display_dim_end_hour
+                )
+
                 # Off hours.
-                if (hour >= config.display_off_start_hour or hour < config.display_off_end_hour) and self.brightness_status != 'off':
-                    self.mo.displayOnOff(0)
-                    self.brightness_status = 'off'
+                if off_hours:
+                    if self.brightness_status != 'off':
+                        self.mo.displayOnOff(0)
+                        self.brightness_status = 'off'
 
                 # Dim hours.
-                elif (hour >= config.display_dim_start_hour or hour < config.display_dim_end_hour) and self.brightness_status != 'dim':
-                    self.mo.displayOnOff(1)
-                    self.mo.setBrightness(1)
-                    self.brightness_status = 'dim'
+                elif dim_hours:
+                    if self.brightness_status != 'dim':
+                        self.mo.displayOnOff(1)
+                        self.mo.setBrightness(1)
+                        self.brightness_status = 'dim'
 
                 # On hours.
                 elif self.brightness_status != 'on':
