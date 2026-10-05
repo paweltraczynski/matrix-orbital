@@ -118,7 +118,6 @@ class MatrixOrbital:
         else:
             self.bus.write(bytes([data]))
 
-    # TODO: Test this.
     def writeCommand(self, command_bytes):
         """
         Writes a command to the display.
@@ -458,7 +457,7 @@ class MatrixOrbital:
                 gpo_ids[gpo],
             ])
 
-    # TODO: Implement these?
+    # Not implemented commands.
     # pvm_value = 0xC0  # [fan #][PWM value]
     # return_fan_rpm = 0xc1  # [fan #]
     # remember_gpo_pwm_state = 0xc3  # [fan #][PWM value]
@@ -478,7 +477,6 @@ class MatrixOrbital:
                 0x00,
             ])
 
-    # TODO: Test this.
     def loadStartupScreen(self, characters):
         """
         Loads a startup screen with the given characters.
