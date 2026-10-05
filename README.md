@@ -14,14 +14,14 @@ over the standard serial interface, allowing the host controller to display
 text or graphs, using high-level commands. Newer modules also have GPO power
 pins that allow controlling fans or other devices.
 
-But because I had some Matrix Orbital modules handy, I decided to write
+Because I had some Matrix Orbital modules handy, I decided to write
 a driver for them so that I can use them in my projects.
 
 ## Supported models
 
 This library supports display-related and GPO-related Matrix Orbital
-commands only. Some modules also have keypad connectors and other features
-- support for these is not included in this library.
+commands only. Some modules also have keypad connectors and other features –
+support for these is not included in this library.
 
 The following LK and VK models are supported:
 
@@ -54,7 +54,9 @@ Here is an example supported display (VK204-25-USB Rev 1.2):
 
 <img src="images/example_display_front.jpg" alt="Example supported display - front" width="500">
 
-And a photo of the back of the module:
+We can see that in this module they have used the Noritake CU20045-UW5J VFD.
+
+And here is a photo featuring the back of the module:
 
 <img src="images/example_display_back.jpg" alt="Example supported display - back" width="500">
 
@@ -165,6 +167,8 @@ To prepare the config file copy `vfd_info_config.py` to
 When you edit the configuration, you need to get API keys for timeapi.world and
 for OpenWeatherMap. Links are provided in the configuration file. The API
 keys are needed so that the weather station can retrieve the proper time and weather from the internet.
+
+## The result
 
 Once you solder everything and configure everything in the config file,
 then you can run the main.py file.  If the Wi-Fi and APIs access worked,
