@@ -8,7 +8,7 @@ from machine import UART, Pin
 
 # Custom libraries.
 from matrix_orbital import MatrixOrbital
-from vfd_info.vfd_info import VfdInfo
+from weather_clock.weather_clock import WeatherClock
 
 # Allow time for the display to become ready for receiving commands.
 time.sleep(2)
@@ -26,9 +26,11 @@ cols = 20
 # Initialize custom libraries.
 ua = UART(0, baudrate = 19200, bits = 8, parity = None, stop = 1, tx = Pin(tx_pin), rx = Pin(rx_pin))
 
+# Matrix Orbital for interacting with the display module.
 mo = MatrixOrbital(ua)
 
-vfd_info = VfdInfo(mo, lines = lines, cols = cols, dht_pin = dht_sensor_pin, button_pin = button_pin)
+# Weather and clock project that displays weather and time.
+weather_clock = WeatherClock(mo, lines = lines, cols = cols, dht_pin = dht_sensor_pin, button_pin = button_pin)
 
 # Start the main loop.
-vfd_info.keepRunning()
+weather_clock.keepRunning()

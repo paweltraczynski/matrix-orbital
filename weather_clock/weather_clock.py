@@ -5,16 +5,16 @@ from machine import Pin, RTC
 import dht
 
 # Dots on the start are required for RPi Pico/MicroPython boards.
-from .vfd_info_digits import VfdInfoDigits
+from .weather_clock_digits import WeatherClockDigits
 
-# Import vfd_info_config_local.py if user has created it.
+# Import weather_clock_config_local.py if user has created it.
 try:
-    from . import vfd_info_config_local as config
-# Otherwise import vfd_info_config.py (assuming the user has customized it).
+    from . import weather_clock_config_local as config
+# Otherwise import weather_clock_config.py (assuming the user has customized it).
 except ImportError:
-    from . import vfd_info_config as config
+    from . import weather_clock_config as config
 
-class VfdInfo:
+class WeatherClock:
     """
     Displays a local time clock, local weather, and indoor temperature.
 
@@ -36,7 +36,7 @@ class VfdInfo:
         self.cols = cols
 
         # Large digits.
-        self.digits = VfdInfoDigits(self.mo)
+        self.digits = WeatherClockDigits(self.mo)
 
         # DHT22 sensor.
         if dht_pin is not None:
@@ -96,7 +96,7 @@ class VfdInfo:
         self.api_timeout = 10
 
         # Track last displayed values.
-        # This is used to prevent writing to the VFD data did not change.
+        # This prevents writing data that did not change to the display.
         self.displayed_time = None
         self.displayed_temperature = None
         self.displayed_humidity = None

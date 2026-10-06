@@ -64,7 +64,7 @@ And here is a photo featuring the back of the module:
 
 The Matrix Orbital library includes:
 - An API to control Matrix Orbital modules
-- A weather station with a clock
+- A weather and clock project that uses this API
 - Readme file with detailed information
 
 The Matrix Orbital library was implemented for MicroPython. However,
@@ -115,7 +115,7 @@ Raspberry PI Pico with logic level shifter between the module and the
 microcontroller.
 
 There are other elements shown on the photo: a DHT22, a button, a USB-C port.
-They are used in the weather station project explained later below.
+They are used in the weather and clock project explained later below.
 
 <img src="images/cable_connections.jpg" alt="Connection between TTL port and MicroPython board" width="500">
 
@@ -130,10 +130,10 @@ of it is not recommended but is possible through an UART to RS232 converter, lik
 
 <img src="images/uart_to_rs232.jpg" alt="UART to RS232 converter development board" width="500">
 
-## Weather station and clock
+## Weather and clock display
 
-The weather station project is a simple script that displays the current
-weather conditions, indoor temperature and humidity and time on a
+The weather and clock project is a simple script that displays the current
+weather conditions, time and indoor temperature and humidity on a
 Matrix Orbital module.
 
 It is being launched by default in the main.py file.
@@ -149,8 +149,8 @@ For it to work, there are a few steps:
 
 ### Config file
 
-To prepare the config file copy `vfd_info_config.py` to
-`vfd_info_config_local.py` and do these edits in the copy:
+To prepare the config file copy `weather_clock_config.py` to
+`weather_clock_config_local.py` and do these edits in the copy:
 
 - `wifi_ssid` - provide the name of your Wi-Fi network
 - `wifi_password` - provide the password to your Wi-Fi network
@@ -166,18 +166,28 @@ To prepare the config file copy `vfd_info_config.py` to
 
 When you edit the configuration, you need to get API keys for timeapi.world and
 for OpenWeatherMap. Links are provided in the configuration file. The API
-keys are needed so that the weather station can retrieve the proper time and weather from the internet.
+keys are needed so that the weather and clock project can retrieve the proper
+time and weather from the internet.
 
-## The result
+### The result
 
 Once you solder everything and configure everything in the config file,
-then you can run the main.py file.  If the Wi-Fi and APIs access worked,
+then you can run the main.py file. If the Wi-Fi and APIs access worked,
 then you should see the module showing all the weather and time data on the
 display.
 
-The following picture shows the Digital Clock demo in action:
+The following picture shows the Weather and Clock project in action:
 
-<img src="images/vfd_info.gif" alt="Weather station project in action" width="500">
+<img src="images/weather_clock.jpg" alt="Weather and clock project in action" width="500">
+
+The icon on the very bottom left is Wi-Fi status. The circle next to it
+indicates that it is cloudy weather. Empty circle would mean sunny, and there
+are also icons for rain and snow.
+
+The third icon, the arrow, prints for a minute after each data fetching
+from the Internet.
+
+<img src="images/weather_clock.gif" alt="Weather and clock project in action" width="500">
 
 
 

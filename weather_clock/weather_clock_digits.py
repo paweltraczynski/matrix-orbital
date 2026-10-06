@@ -1,4 +1,4 @@
-class VfdInfoDigits:
+class WeatherClockDigits:
     """
     A class containing big clock characters:
     - large digits (0-9)
