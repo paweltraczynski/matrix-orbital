@@ -46,106 +46,74 @@ class VfdInfoDigits:
         disp.setCursor(column, row)
 
         if digit == 0 or digit =='0':
-            # TODO: Can we use write([2, 3])?
-            disp.write(2)
-            disp.write(3)
+            disp.write([2, 3])
             disp.setCursor(column, row + 1)
-            disp.write(4)
-            disp.write(5)
+            disp.write([4, 5])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         elif digit == 1 or digit == '1':
-            disp.write(0)
-            disp.write(4)
+            disp.write([0, 4])
             disp.setCursor(column, row + 1)
-            # TODO: Can we use 254 for spaces?
-            disp.write(' ')
-            disp.write(4)
+            disp.write([32, 4])
             disp.setCursor(column, row + 2)
-            disp.write(0)
-            disp.write(1)
+            disp.write([0, 1])
 
         elif digit == 2 or digit == '2':
-            disp.write(1)
-            disp.write(3)
+            disp.write([1, 3])
             disp.setCursor(column, row + 1)
-            disp.write(2)
-            disp.write(1)
+            disp.write([2, 1])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         elif digit == 3 or digit == '3':
-            disp.write(1)
-            disp.write(3)
+            disp.write([1, 3])
             disp.setCursor(column, row + 1)
-            disp.write(0)
-            disp.write(3)
+            disp.write([0, 3])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         elif digit == 4 or digit == '4':
-            disp.write(4)
-            disp.write(5)
+            disp.write([4, 5])
             disp.setCursor(column, row + 1)
-            disp.write(1)
-            disp.write(3)
+            disp.write([1, 3])
             disp.setCursor(column, row + 2)
-            disp.write(' ')
-            disp.write(0)
+            disp.write([32, 0])
 
         elif digit == 5 or digit == '5':
-            disp.write(2)
-            disp.write(1)
+            disp.write([2, 1])
             disp.setCursor(column, row + 1)
-            disp.write(1)
-            disp.write(3)
+            disp.write([1, 3])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         elif digit == 6 or digit == '6':
-            disp.write(2)
-            disp.write(1)
+            disp.write([2, 1])
             disp.setCursor(column, row + 1)
-            disp.write(2)
-            disp.write(3)
+            disp.write([2, 3])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         elif digit == 7 or digit == '7':
-            disp.write(1)
-            disp.write(3)
+            disp.write([1, 3])
             disp.setCursor(column, row + 1)
-            disp.write(' ')
-            disp.write(5)
+            disp.write([32, 5])
             disp.setCursor(column, row + 2)
-            disp.write(' ')
-            disp.write(0)
+            disp.write([32, 0])
 
         elif digit == 8 or digit == '8':
-            disp.write(2)
-            disp.write(3)
+            disp.write([2, 3])
             disp.setCursor(column, row + 1)
-            disp.write(2)
-            disp.write(3)
+            disp.write([2, 3])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         elif digit == 9 or digit == '9':
-            disp.write(2)
-            disp.write(3)
+            disp.write([2, 3])
             disp.setCursor(column, row + 1)
-            disp.write(1)
-            disp.write(3)
+            disp.write([1, 3])
             disp.setCursor(column, row + 2)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
 
         # Colon printed between hours and minutes.
         elif digit == 'colon':
@@ -157,25 +125,19 @@ class VfdInfoDigits:
 
         # Dash printed if the time is not set.
         elif digit == 'dash':
-            disp.write(' ')
-            disp.write(' ')
+            disp.write([32, 32])
             disp.setCursor(column, row + 1)
-            disp.write(1)
-            disp.write(1)
+            disp.write([1, 1])
             disp.setCursor(column, row + 2)
-            disp.write(' ')
-            disp.write(' ')
+            disp.write([32, 32])
 
         # Erases digit/dash at a given position.
         elif digit == 'erase':
-            disp.write(' ')
-            disp.write(' ')
+            disp.write([32, 32])
             disp.setCursor(column, row + 1)
-            disp.write(' ')
-            disp.write(' ')
+            disp.write([32, 32])
             disp.setCursor(column, row + 2)
-            disp.write(' ')
-            disp.write(' ')
+            disp.write([32, 32])
 
         # Erases colon at a given position.
         elif digit == 'erase_colon':

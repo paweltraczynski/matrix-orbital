@@ -1,3 +1,8 @@
+"""
+While the MatrixOrbital library is MicroPython/CPython compatible,
+this main script is intended to be used with MicroPython for launching
+the weather display project, which was written for MicroPython.
+"""
 import time
 from machine import UART, Pin
 

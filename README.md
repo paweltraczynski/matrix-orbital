@@ -130,9 +130,9 @@ of it is not recommended but is possible through an UART to RS232 converter, lik
 
 <img src="images/uart_to_rs232.jpg" alt="UART to RS232 converter development board" width="500">
 
-## Weather station
+## Weather station and clock
 
-Weather station project is a simple script that displays the current
+The weather station project is a simple script that displays the current
 weather conditions, indoor temperature and humidity and time on a
 Matrix Orbital module.
 

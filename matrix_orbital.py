@@ -2,17 +2,28 @@ import time
 
 class MatrixOrbital:
     """
-    A class for interacting with a Matrix Orbital LCD/VFD display.
+    A class for interacting with a Matrix Orbital LK/VK series display module.
 
-    The connection to the display should be done using:
+    Supports:
+    - MicroPython
+    - CPython
+
+    Connect to the display using either:
     - UART converted to 5V TTL
     - RS232 serial connection.
 
     Example usage:
-    from machine import UART, Pin
     from matrix_orbital import MatrixOrbital
 
-    bus = UART(0, baudrate=19200, bits=8, parity=None, stop=1, tx=Pin(0), rx=Pin(1))
+    # MicroPython:
+    from machine import UART, Pin
+    bus = UART (0, baudrate=19200, bits=8, parity=None, stop=1, tx=Pin(0), rx=Pin(1))
+
+    # CPython:
+    from serial import Serial
+    bus = Serial(port='/dev/serial0', baudrate=19200)
+
+    # Initialize:
     mo = MatrixOrbital(bus)
 
     # Call functions:
@@ -88,7 +99,7 @@ class MatrixOrbital:
         self.display_off = 0x46
         self.load_startup_screen = 0x40  # [40 characters]
 
-        # Init display with these defaults.
+        # Initialize the display with default settings.
         self.clearDisplay()
         self.underlineCursor(False)
         self.blockCursor(False)
@@ -112,8 +123,7 @@ class MatrixOrbital:
             self.bus.write(data)
 
         elif isinstance(data, (list, tuple, bytearray)):
-            for byte in data:
-                self.bus.write(bytes([byte]))
+            self.bus.write(bytes(data))
 
         else:
             self.bus.write(bytes([data]))
@@ -122,7 +132,7 @@ class MatrixOrbital:
         """
         Writes a command to the display.
 
-        :param command_bytes: The command bytes write.
+        :param command_bytes: The command bytes to write.
         """
         self.write(self.command_char)
         self.write(command_bytes)
@@ -133,18 +143,18 @@ class MatrixOrbital:
 
         This is used to print non-string values on the display.
 
-        :param data: The text string to write of the display.
+        :param data: The value to convert to text and write to the display.
         """
         self.bus.write(str(data).encode())
 
     def writeCustomChar(self, slot, char_map, remember = False):
         """
-        "Writes a custom character to one of the 8 CGRAM locations.
+        Writes a custom character to one of the 8 CGRAM locations.
 
         After this command, the character can be used on the display.
 
         :param slot: The slot to write the character to (0-7)
-        :param char_map: The character map to write to the slot
+        :param char_map: The character map to write to the slot (8 bytes).
         :param remember: True to permanently remember the custom character, False otherwise
         """
         slots = {
@@ -157,6 +167,14 @@ class MatrixOrbital:
             6: 0x06,
             7: 0x07,
         }
+
+        # Validate slot.
+        if slot not in slots:
+            raise ValueError('Custom character slot must be between 0 and 7.')
+
+        # Validate char_map.
+        if len(bytes(char_map)) != 8:
+            raise ValueError('Custom character map must be 8 bytes long.')
 
         if remember:
             command = [
@@ -204,31 +222,28 @@ class MatrixOrbital:
             row,
         ])
 
-    # TODO: Test this.
     def cursorLeft(self, amount = 1):
         """
         Moves the cursor left by the specified number of characters.
 
         Matrix Orbital command: Text - Cursor left.
 
-        :param amount: By how many characters to move the cursor left.
+        :param amount: The number of characters to move the cursor left.
         """
         for _ in range(amount):
             self.writeCommand(self.cursor_left)
 
-    # TODO: Test this.
     def cursorRight(self, amount = 1):
         """
         Moves the cursor right by the specified number of characters.
 
         Matrix Orbital command: Text - Cursor right.
 
-        :param amount: By how many characters to move the cursor right.
+        :param amount: The number of characters to move the cursor right.
         """
         for _ in range(amount):
             self.writeCommand(self.cursor_right)
 
-    # TODO: Test this.
     def cursorHome(self):
         """
         Moves the cursor to the home position.
@@ -241,7 +256,6 @@ class MatrixOrbital:
     # |                  GENERAL COMMANDS                   |
     # '-----------------------------------------------------'
 
-    # TODO: Test this.
     def underlineCursor(self, enable):
         """
         Enables or disables the underline cursor.
@@ -296,7 +310,7 @@ class MatrixOrbital:
         Matrix Orbital command: Miscellaneous - Set brightness.
 
         :param brightness: 4 for 100%, 3 for 75%, 2 for 50%, and 1 for 25%.
-        :param remember: True to remember the brightness level, False to not.
+        :param remember: True to save the brightness level permanently, False otherwise.
         """
         levels = {
             1: 0x03,
@@ -306,7 +320,6 @@ class MatrixOrbital:
         }
 
         if remember:
-            # TODO: Saving brightness command is not working.
             self.writeCommand([
                 self.set_brightness_and_save,
                 levels[brightness],
@@ -317,7 +330,6 @@ class MatrixOrbital:
                 levels[brightness],
             ])
 
-    # TODO: Test this.
     def autoLineWrap(self, enable):
         """
         Enables or disables automatic line wrapping.
@@ -332,7 +344,6 @@ class MatrixOrbital:
         else:
             self.writeCommand(self.auto_line_wrap_off)
 
-    # TODO: Test this.
     def autoScroll(self, enable):
         """
         Enables or disables automatic vertical scrolling.
@@ -356,7 +367,6 @@ class MatrixOrbital:
     # |                     BAR GRAPHS                      |
     # '-----------------------------------------------------'
 
-    # TODO: Test this.
     def initWideVerticalBarGraph(self):
         """
         Initializes a wide vertical bar graph.
@@ -366,7 +376,6 @@ class MatrixOrbital:
         """
         self.writeCommand(self.init_wide_vertical_bar_graph)
 
-    # TODO: Test this.
     def initNarrowVerticalBarGraph(self):
         """
         Initializes a narrow vertical bar graph.
@@ -376,7 +385,6 @@ class MatrixOrbital:
         """
         self.writeCommand(self.init_narrow_vertical_bar_graph)
 
-    # TODO: Test this.
     def drawVerticalBarGraph(self, column, height):
         """
         Draws a vertical bar graph.
@@ -392,47 +400,44 @@ class MatrixOrbital:
             height
         ])
 
-    # TODO: Test this.
     def initHorizontalBarGraph(self):
         """
-        Initializes horizontal bar graph.
+        Initializes a horizontal bar graph.
 
         Matrix Orbital command: Bar graphs - Initialize horizontal
         bar graph.
         """
         self.writeCommand(self.init_horizontal_bar_graph)
 
-    # TODO: Test this.
-    def drawHorizontalBarGraph(self, column, row, direction, length):
+    def drawHorizontalBarGraph(self, column, row, direction_from, length):
         """
         Draws a horizontal bar graph.
 
         :param column: The column at which to start (0-14).
         :param row: The row in which to draw the bar graph (1-2).
-        :param direction: Pass 'left' or 'right'.
+        :param direction_from: Pass 'left' or 'right'.
         :param length: The length of the bar graph (0-100).
         """
         directions = {
-            'left': 0,
-            'right': 1,
+            'right': 0,
+            'left': 1,
         }
 
         self.writeCommand([
             self.draw_horizontal_bar_graph,
             column,
             row,
-            directions[direction],
+            directions[direction_from],
             length
         ])
 
     # .-----------------------------------------------------.
-    # |                     FAN AND GP0                     |
+    # |                     FAN AND GPO                     |
     # '-----------------------------------------------------'
 
-    # TODO: Test this.
     def gpoOnOff(self, gpo, enable):
         """
-        Enabled and disables a selected GPO port power.
+        Turns the selected general-purpose output on or off.
 
         :param gpo: The GPO port number (1-6).
         :param enable: Whether to enable or disable the GPO port.
@@ -457,14 +462,17 @@ class MatrixOrbital:
                 gpo_ids[gpo],
             ])
 
-    # Not implemented commands.
+    # Not implemented commands related to fan control and PWM.
     # pvm_value = 0xC0  # [fan #][PWM value]
     # return_fan_rpm = 0xc1  # [fan #]
     # remember_gpo_pwm_state = 0xc3  # [fan #][PWM value]
     # set_pwm_base_frequency = 0xc4  # [index]
     # remember_pwm_base_frequency = 0xc5  # [index]
 
-    # TODO: Test this.
+    # .-----------------------------------------------------.
+    # |                    MISCELLANEOUS                    |
+    # '-----------------------------------------------------'
+
     def remember(self, enable):
         if enable:
             self.writeCommand([
@@ -481,14 +489,23 @@ class MatrixOrbital:
         """
         Loads a startup screen with the given characters.
 
-        :param characters: A string of 40 characters to display on the startup screen.
+        If you provide fewer than 40 characters, the remaining characters
+        will be filled with spaces. If you provide more than 40 characters,
+        the extra characters will be ignored.
+
+        :param characters: A string of max 40 characters to display on the startup screen.
         """
+        payload = characters.encode('ascii')[:40]
+
+        # Add padding to the payload if shorter than 40 bytes.
+        payload += b' ' * (40 - len(payload))
+
         self.write(self.command_char)
         self.write(self.load_startup_screen)
 
-        for char in list(characters):
-            self.write(char)
-            time.sleep_ms(5)
+        for byte in payload:
+            self.write(byte)
+            time.sleep(0.005)
 
     # .-----------------------------------------------------.
     # |                  HELPER FUNCTIONS                   |
@@ -496,7 +513,7 @@ class MatrixOrbital:
 
     def getNamedCharacter(self, name):
         """
-        Returns a hex code of the named character.
+        The character code of the named character.
 
         Named characters are special ones that can be used to display
         arrows, circles, icon-looking characters, etc.
@@ -582,5 +599,5 @@ class MatrixOrbital:
         if name in characters:
             return characters[name]
         else:
-            # If no character, then return '?'
+            # Return '?' if the name is unknown.
             return 0x3f

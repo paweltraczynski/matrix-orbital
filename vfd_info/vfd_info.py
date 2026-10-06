@@ -18,6 +18,8 @@ class VfdInfo:
     """
     Displays a local time clock, local weather, and indoor temperature.
 
+    This is written for MicroPython.
+
     :param mo: The Matrix Orbital class.
     :param lines: The number of lines on the display.
     :param cols: The number of columns on the display.
@@ -122,6 +124,10 @@ class VfdInfo:
         self.download_icon_shown = False
         self.download_icon_time = 0
 
+        # Time ticks_ms and ticks_diff compatibility variables.
+        self.ticks_ms = False
+        self.ticks_diff = False
+
     def connectWifi(self):
         """
         Connects to the Wi-Fi network, retries if the SSID is unavailable.
@@ -217,20 +223,15 @@ class VfdInfo:
 
            url = url.rstrip('&')
 
-        response = None
+        response = requests.get(url, timeout = self.api_timeout)
         try:
-            response = requests.get(url, timeout = self.api_timeout)
-
             if response.status_code == 200:
-                # TODO: Shouldn't it close before returning?
                 return response.json()
-            else:
-                return False
+
+            return False
         finally:
             if response is not None:
                 response.close()
-
-        return False
 
     def checkHourInRange(self, hour, start, end):
         """
@@ -335,7 +336,6 @@ class VfdInfo:
         """
         Gets the current date and time from the hardware RTC.
         """
-        # TODO: time.ticks_ms() and time.ticks_diff() CPython compatible.
         current_ticks = time.ticks_ms()
 
         # Fetch date and time from the internet if they weren't fetched yet,
@@ -676,9 +676,12 @@ class VfdInfo:
 
     def screenInit(self):
         """
-        Initializes large digits and prints data placeholders.
+        Initializes the display, large digits and prints data placeholders.
         """
+        # Initialize the display.
         self.mo.clearDisplay()
+
+        # Initialize the large digits.
         self.digits.largeDigitsInit()
 
         # Temperatures placeholders.
