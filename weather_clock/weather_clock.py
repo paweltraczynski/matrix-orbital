@@ -125,10 +125,6 @@ class WeatherClock:
         self.download_icon_shown = False
         self.download_icon_time = 0
 
-        # Time ticks_ms and ticks_diff compatibility variables.
-        self.ticks_ms = False
-        self.ticks_diff = False
-
     def connectWifi(self):
         """
         Connects to the Wi-Fi network, retries if the SSID is unavailable.
