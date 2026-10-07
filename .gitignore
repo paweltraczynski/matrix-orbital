@@ -2,8 +2,7 @@
 .idea/
 
 # Local config file.
-vfd_info/vfd_info_config_local.py
 weather_clock/weather_clock_config_local.py
 
-# Temporary dev directory.
-dev
+# Windows files.
+desktop.ini
