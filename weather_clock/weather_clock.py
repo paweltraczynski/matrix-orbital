@@ -68,8 +68,9 @@ class WeatherClock:
         # Stores the last date synchronization time in ms.
         self.date_last_fetch =  None
         self.date_last_attempt = None
-        # 6-hour interval converted to milliseconds.
-        self.date_fetch_interval = 6 * 60 * 60 * 1000
+        # 2-hour interval converted to milliseconds.
+        # This low interval is needed for daylight savings time changes.
+        self.date_fetch_interval = 2 * 60 * 60 * 1000
 
         # Weather settings.
         self.weather_api_key = config.weather_api_key
@@ -339,7 +340,7 @@ class WeatherClock:
         current_ticks = time.ticks_ms()
 
         # Fetch date and time from the internet if they weren't fetched yet,
-        # or if they were fetched more than 6 hours ago.
+        # or if they were fetched more than 2 hours ago.
         if (
             (self.date_last_fetch is None) or
             (time.ticks_diff(current_ticks, self.date_last_fetch)
@@ -722,7 +723,7 @@ class WeatherClock:
         while True:
             ticks_ms = time.ticks_ms()
 
-            # Update displayed time (fetches new every 6 hours).
+            # Update displayed time (fetches new every 2 hours).
             self.printDateTime()
 
             # Update displayed weather (fetches new every 10 minutes).
