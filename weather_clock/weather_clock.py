@@ -1,18 +1,18 @@
 import time
 import network
-import requests
-from machine import Pin, RTC
+from machine import Pin
 import dht
 
 # Dots on the start are required for RPi Pico/MicroPython boards.
-from .weather_clock_digits import WeatherClockDigits
+from .fetchers import Fetchers
+from .large_digits_3_rows import LargeDigits
 
-# Import weather_clock_config_local.py if user has created it.
+# Import config_local.py if user has created it.
 try:
-    from . import weather_clock_config_local as config
-# Otherwise import weather_clock_config.py (assuming the user has customized it).
+    from . import config_local as config
+# Otherwise import config.py (assuming the user has customized it).
 except ImportError:
-    from . import weather_clock_config as config
+    from . import config
 
 class WeatherClock:
     """
@@ -35,8 +35,11 @@ class WeatherClock:
         self.lines = lines
         self.cols = cols
 
+        # Data fetchers, for fetching weather and time from the Internet.
+        self.fetchers = Fetchers()
+
         # Large digits.
-        self.digits = WeatherClockDigits(self.mo)
+        self.digits = LargeDigits(self.mo)
 
         # DHT22 sensor.
         if dht_pin is not None:
@@ -50,51 +53,12 @@ class WeatherClock:
         else:
             self.button = None
 
-        # RTC used by the clock feature.
-        self.rtc = RTC()
-
         # Wi-Fi.
         self.wlan = network.WLAN(network.STA_IF)
         self.ssid = config.wifi_ssid
         self.password = config.wifi_password
         self.wifi_last_attempt = None
         self.wifi_retry_interval = 10 * 1000
-
-        # Time settings.
-        self.timeapi_api_key = config.time_api_key
-        self.timezone = config.time_timezone
-
-        # Time fetching.
-        # Stores the last date synchronization time in ms.
-        self.date_last_fetch =  None
-        self.date_last_attempt = None
-        # 2-hour interval converted to milliseconds.
-        # This low interval is needed for daylight savings time changes.
-        self.date_fetch_interval = 2 * 60 * 60 * 1000
-
-        # Weather settings.
-        self.weather_api_key = config.weather_api_key
-        self.weather_city = config.weather_city
-        self.weather_unit = config.weather_unit
-
-        # Weather fetching.
-        # Stores the last weather synchronization time in ms.
-        self.weather_last_fetch =  None
-        self.weather_last_attempt = None
-        # 10-minutes interval converted to milliseconds.
-        self.weather_fetch_interval = 10 * 60 * 1000
-
-        # Fetched weather.
-        self.weather = {
-            'temperature': 0,
-            'humidity': 0,
-            'conditions': '',
-            'success': False,
-        }
-
-        # Failed API requests are retried after one minute.
-        self.api_retry_interval = 60 * 1000
-        self.api_timeout = 10
 
         # Track last displayed values.
         # This prevents writing data that did not change to the display.
@@ -119,9 +83,11 @@ class WeatherClock:
         self.brightness_set = 4
         # Brightness changing button last pressed time.
         self.brightness_button = None
+        # Night wake timer used when turning the display on for a moment
+        # during the night.
+        self.night_wake_started = None
 
         # Track download icon.
-        self.download_icon_start = True
         self.download_icon_shown = False
         self.download_icon_time = 0
 
@@ -178,58 +144,6 @@ class WeatherClock:
         print('Established Wi-Fi connection.')
         return True
 
-    def urlEncode(self, value):
-        """
-        Encodes a string to be used in a URL.
-
-        :param value: The string to encode.
-
-        :return: The encoded string.
-        """
-        encoded = []
-
-        for byte in str(value).encode('utf-8'):
-            is_unreserved = (
-                ord('A') <= byte <= ord('Z') or
-                ord('a') <= byte <= ord('z') or
-                ord('0') <= byte <= ord('9') or
-                byte in (ord('-'), ord('.'), ord('_'), ord('~'))
-            )
-
-            if is_unreserved:
-                encoded.append(chr(byte))
-            else:
-                encoded.append('%{:02X}'.format(byte))
-
-        return ''.join(encoded)
-
-    def urlGetJson(self, url, params = None):
-        """
-        Gets JSON from a URL.
-
-        :param url: The URL to get JSON from.
-        :param params: The parameters to include in the URL.
-
-        :return: The JSON data or False if the request failed.
-        """
-        if params:
-           url = url.rstrip('?') + '?'
-
-           for key, value in params.items():
-               url += key + '=' + self.urlEncode(value) + '&'
-
-           url = url.rstrip('&')
-
-        response = requests.get(url, timeout = self.api_timeout)
-        try:
-            if response.status_code == 200:
-                return response.json()
-
-            return False
-        finally:
-            if response is not None:
-                response.close()
-
     def checkHourInRange(self, hour, start, end):
         """
         Checks if the given hour is in the given range.
@@ -264,120 +178,6 @@ class WeatherClock:
         if self.brightness_status == 'on':
             self.mo.setBrightness(brightness)
 
-    def fetchDateTime(self):
-        """
-        Fetches the current date from the https://gateway.timeapi.world/ API.
-        """
-        print('Fetching date and time from the Internet.')
-
-        # The timeapi.world gateway endpoint url.
-        url = f'https://gateway.timeapi.world/timezone/{self.timezone}'
-
-        headers = {
-            'x-rapidapi-key': self.timeapi_api_key,
-            'x-rapidapi-host': 'world-time-api3.p.rapidapi.com',
-            'Content-Type': 'application/json'
-        }
-
-        self.date_last_attempt = time.ticks_ms()
-        response = None
-
-        try:
-            # Send the GET request with the required headers.
-            response = requests.get(url, headers = headers, timeout = self.api_timeout)
-
-            if response.status_code == 200:
-                data = response.json()
-                datetime = data['datetime']
-
-                # Parse the ISO 8601 datetime response string.
-                year = int(datetime[0:4])
-                month = int(datetime[5:7])
-                day = int(datetime[8:10])
-                hour = int(datetime[11:13])
-                minute = int(datetime[14:16])
-                second = int(datetime[17:19])
-
-                # The API uses 0 for Sunday to 6 for Saturday.
-                # RTC expects 0 for Monday to 6 for Sunday.
-                api_dow = data['day_of_week']
-                rtc_dow = 6 if api_dow == 0 else api_dow - 1
-
-                # Set the system time.
-                self.rtc.datetime(
-                    (year, month, day, rtc_dow, hour, minute, second, 0)
-                )
-
-                # Save the timestamp of the successful synchronization.
-                self.date_last_fetch = time.ticks_ms()
-
-                # Set a flag that will toggle the download icon.
-                self.download_icon_start = True
-
-                response.close()
-                print('Synchronized date and time.')
-                return True
-
-            else:
-                response.close()
-                print('Failed to synchronize date and time.')
-                return False
-
-        except Exception as e:
-            if hasattr(response, 'close'):
-                response.close()
-            print('Date and time synchronization error:', e)
-            return False
-
-    def getDateTime(self):
-        """
-        Gets the current date and time from the hardware RTC.
-        """
-        current_ticks = time.ticks_ms()
-
-        # Fetch date and time from the internet if they weren't fetched yet,
-        # or if they were fetched more than 2 hours ago.
-        if (
-            (self.date_last_fetch is None) or
-            (time.ticks_diff(current_ticks, self.date_last_fetch)
-             >= self.date_fetch_interval)
-        ) and (
-            (self.date_last_attempt is None) or
-            (time.ticks_diff(current_ticks, self.date_last_attempt)
-             >= self.api_retry_interval)
-        ):
-            self.fetchDateTime()
-
-        # Read the current time directly from the hardware RTC.
-        hardware_time = self.rtc.datetime()
-
-        # Return the dictionary with the current date and time parts.
-        if self.date_last_fetch is not None:
-            return {
-                'year': str(hardware_time[0]),
-                # Fill with leading zeros.
-                'month': '{:0>2}'.format(hardware_time[1]),
-                'day': '{:0>2}'.format(hardware_time[2]),
-                'hour': '{:0>2}'.format(hardware_time[4]),
-                'minute': '{:0>2}'.format(hardware_time[5]),
-                'second': '{:0>2}'.format(hardware_time[6]),
-                'timestamp': time.time(),
-                'hour_int': hardware_time[4],
-                'minute_int': hardware_time[5],
-            }
-        else:
-            return {
-                'year': 0,
-                'month': '00',
-                'day': '00',
-                'hour': '00',
-                'minute': '00',
-                'second': '00',
-                'timestamp': '00',
-                'hour_int': 0,
-                'minute_int': 0,
-            }
-
     def printDateTime(self):
         """
         Prints the current time on the display.
@@ -391,7 +191,7 @@ class WeatherClock:
         self.last_time = current_ticks
 
         # Get date and time.
-        date = self.getDateTime()
+        date = self.fetchers.getDateTime()
 
         # Print the time if it is set.
         if date['year'] != 0:
@@ -436,125 +236,6 @@ class WeatherClock:
                 # Static colon when time is not known.
                 self.digits.largeDigit('colon', 15)
 
-    def fetchWeather(self):
-        """
-        Fetches the weather data for from the OpenWeatherMap API.
-        """
-        print('Fetching weather data from the OpenWeatherMap.')
-
-        # The open weather API endpoint url.
-        weather_url = 'https://api.openweathermap.org/data/2.5/weather'
-
-        params = {
-            'q': self.weather_city,
-            'appid': self.weather_api_key,
-            'units': self.weather_unit,
-        }
-
-        temperature = 0
-        humidity = 0
-        conditions = ''
-        success = False
-
-        self.weather_last_attempt = time.ticks_ms()
-
-        try:
-            weather = self.urlGetJson(weather_url, params)
-
-            # Weather API deta structure.
-            # timezone => 7200
-            # sys => Dict {
-            #   type => 2
-            #   sunrise => 1787888431
-            #   country => 'PL'
-            #   id => 2032856
-            #   sunset => 1787938467
-            # }
-            # base => 'stations'
-            # main => Dict {
-            #   pressure => 1016
-            #   feels_like => 23.67
-            #   temp_max => 25.86
-            #   temp => 24.18
-            #   temp_min => 23.13
-            #   humidity => 39
-            #   sea_level => 1016
-            #   grnd_level => 1005
-            # }
-            # visibility => 10000
-            # id => 756135
-            # clouds => Dict {
-            #   all => 89
-            # }
-            # coord => Dict {
-            #   lon => 21.0118
-            #   lat => 52.2298
-            # }
-            # name => 'Warsaw'
-            # cod => 200
-            # weather => [
-            #   0 => Dict {
-            #     id => 804
-            #     icon => '04d'
-            #     main => 'Clouds'
-            #     description => 'overcast clouds'
-            #   }
-            # ]
-            # dt => 1787930328
-            # wind => Dict {
-            #   speed => 5.14
-            #   deg => 130
-            # }
-
-            if weather and isinstance(weather, dict):
-                temperature = round(weather['main']['temp'], 1)
-                humidity = round(weather['main']['humidity'])
-                conditions = weather['weather'][0]['main']
-                success = True
-
-                # Save the timestamp of the successful synchronization.
-                self.weather_last_fetch = time.ticks_ms()
-
-                # Set a flag that will toggle the download icon.
-                self.download_icon_start = True
-
-                print('Fetched weather data from OpenWeatherMap.')
-
-            else:
-                print('Failed to fetch weather data from OpenWeatherMap.')
-
-        except Exception as e:
-            print('Weather synchronization error:', e)
-
-        self.weather = {
-            'temperature': temperature,
-            'humidity': humidity,
-            'conditions': conditions,
-            'success': success,
-        }
-
-    def getWeather(self):
-        """
-        Gets the last fetched weather data and refetches if needed.
-        """
-        current_ticks = time.ticks_ms()
-
-        # Fetch weather from the internet if it wasn't fetched yet,
-        # or if it was fetched more than 10 minutes ago.
-        if (
-            (self.weather_last_fetch is None) or
-            (time.ticks_diff(current_ticks, self.weather_last_fetch)
-             >= self.weather_fetch_interval)
-        ) and (
-            (self.weather_last_attempt is None) or
-            (time.ticks_diff(current_ticks, self.weather_last_attempt)
-             >= self.api_retry_interval)
-        ):
-            self.fetchWeather()
-
-        # Return the weather data.
-        return self.weather
-
     def printWeather(self):
         current_ticks = time.ticks_ms()
 
@@ -565,7 +246,7 @@ class WeatherClock:
         self.last_weather = current_ticks
 
         # Get weather data.
-        weather = self.getWeather()
+        weather = self.fetchers.getWeather()
 
         # Print weather if it was fetched.
         if weather['success']:
@@ -717,8 +398,6 @@ class WeatherClock:
         self.connectWifi()
 
         while True:
-            ticks_ms = time.ticks_ms()
-
             # Update displayed time (fetches new every 2 hours).
             self.printDateTime()
 
@@ -728,8 +407,30 @@ class WeatherClock:
             # Update indoor temperature and humidity.
             self.printIndoorTemp()
 
+            # Detect dim and off hours.
+            date = self.fetchers.getDateTime()
+
+            off_hours = False
+            dim_hours = False
+
+            if date['year'] != 0:
+                off_hours = self.checkHourInRange(
+                    date['hour_int'],
+                    config.display_off_start_hour,
+                    config.display_off_end_hour
+                )
+
+                dim_hours = self.checkHourInRange(
+                    date['hour_int'],
+                    config.display_dim_start_hour,
+                    config.display_dim_end_hour
+                )
+
+            # Ticks after potential fetching of data from the Internet.
+            ticks_ms = time.ticks_ms()
+
             # Update download icon.
-            if self.download_icon_start and not self.download_icon_shown:
+            if self.fetchers.data_fetched and not self.download_icon_shown:
                 # Show icon if not shown but flagged to start appearing.
                 self.mo.setCursor(5, 4)
                 self.mo.writeNamedChar('arrow_right')
@@ -741,54 +442,54 @@ class WeatherClock:
                 self.mo.setCursor(5, 4)
                 self.mo.write(' ')
                 self.download_icon_shown = False
-                self.download_icon_start = False
+                self.fetchers.data_fetched = False
 
             # Handle brightness button.
             if self.button is not None:
                 if self.button.value() == 0:
                     if self.brightness_button is None:
                         self.brightness_button = ticks_ms
+
+                        # Button triggers night wake at night.
+                        if off_hours:
+                            self.night_wake_started = ticks_ms
                 else:
                     if self.brightness_button is not None:
                         if time.ticks_diff(ticks_ms, self.brightness_button) >= 100:
-                            self.changeBrightness()
+                            if not off_hours and not dim_hours:
+                                self.changeBrightness()
                             self.brightness_button = None
 
+            # Calculate if the night wake is active.
+            night_wake_active = (
+                self.night_wake_started is not None
+                and time.ticks_diff(ticks_ms, self.night_wake_started) < 10_000
+            )
+
             # Update night/day brightness.
-            date = self.getDateTime()
-            if date['year'] != 0:
-                hour = date['hour_int']
-
-                off_hours = self.checkHourInRange(
-                    hour,
-                    config.display_off_start_hour,
-                    config.display_off_end_hour
-                )
-
-                dim_hours = self.checkHourInRange(
-                    hour,
-                    config.display_dim_start_hour,
-                    config.display_dim_end_hour
-                )
-
-                # Off hours.
-                if off_hours:
-                    if self.brightness_status != 'off':
-                        self.mo.displayOnOff(0)
-                        self.brightness_status = 'off'
-
-                # Dim hours.
-                elif dim_hours:
-                    if self.brightness_status != 'dim':
+            # Off hours.
+            if off_hours:
+                if night_wake_active:
+                    if self.brightness_status != 'night_wake':
                         self.mo.displayOnOff(1)
                         self.mo.setBrightness(1)
-                        self.brightness_status = 'dim'
+                        self.brightness_status = 'night_wake'
+                elif self.brightness_status != 'off':
+                    self.mo.displayOnOff(0)
+                    self.brightness_status = 'off'
 
-                # On hours.
-                elif self.brightness_status != 'on':
+            # Dim hours.
+            elif dim_hours:
+                if self.brightness_status != 'dim':
                     self.mo.displayOnOff(1)
-                    self.mo.setBrightness(self.brightness_set)
-                    self.brightness_status = 'on'
+                    self.mo.setBrightness(1)
+                    self.brightness_status = 'dim'
+
+            # On hours.
+            elif self.brightness_status != 'on':
+                self.mo.displayOnOff(1)
+                self.mo.setBrightness(self.brightness_set)
+                self.brightness_status = 'on'
 
             # Reconnect Wi-Fi if needed.
             if not self.wlan.isconnected():

@@ -2,7 +2,7 @@
 .idea/
 
 # Local config file.
-weather_clock/weather_clock_config_local.py
+weather_clock/config_local.py
 
 # Windows files.
 desktop.ini

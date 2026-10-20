@@ -1,6 +1,6 @@
-class WeatherClockDigits:
+class LargeDigits:
     """
-    A class containing big clock characters:
+    A class containing big clock characters that occupy 3 rows:
     - large digits (0-9)
     - a large colon displayed between hours and minutes
     - a large dash displayed when the time is not set

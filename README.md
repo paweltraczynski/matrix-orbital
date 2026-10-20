@@ -149,8 +149,8 @@ For it to work, there are a few steps:
 
 ### Config file
 
-To prepare the config file copy `weather_clock_config.py` to
-`weather_clock_config_local.py` and do these edits in the copy:
+To prepare the config file copy `config.py` to
+`config_local.py` and do these edits in the copy:
 
 - `wifi_ssid` - provide the name of your Wi-Fi network
 - `wifi_password` - provide the password to your Wi-Fi network
