@@ -64,8 +64,9 @@ And here is a photo featuring the back of the module:
 
 The Matrix Orbital library includes:
 - An API to control Matrix Orbital modules
-- A weather and clock project that uses this API
+- A Weather Clock project that uses this API
 - Readme file with detailed information
+- A separate [README for the Weather Clock project](README_WEATHER_CLOCK.md)
 
 The Matrix Orbital library was implemented for MicroPython. However,
 with a bit of work it is possible to adapt it for regular Python.
@@ -130,27 +131,30 @@ of it is not recommended but is possible through an UART to RS232 converter, lik
 
 <img src="images/uart_to_rs232.jpg" alt="UART to RS232 converter development board" width="500">
 
-## Weather and clock display
+## Weather Clock project
 
-The weather and clock project is a simple script that displays the current
-weather conditions, time and indoor temperature and humidity on a
-Matrix Orbital module.
+The Weather Clock project displays the current time, weather conditions, and
+indoor temperature and humidity on a 20x4 Matrix Orbital module. It is launched
+by default in `main.py`.
 
-It is being launched by default in the main.py file.
+The Weather Clock project has its own readme file.
+Please see it here:
+[README_WEATHER_CLOCK.md](README_WEATHER_CLOCK.md)
 
-For it to work, there are a few steps:
-- You need to connect the Matrix Orbital module to your microcontroller, as
-  explained above.
-- You need to connect DHT22 sensor to the microcontroller pin that you specify
-  in the main.py file.
-- You need to connect a button to the microcontroller pin that you specify
-  in the main.py file.
-- You need to create a config file based on the instructions below.
+It includes the build instructions, required files, setup, layouts, button
+functions, and saved settings.
+
+The following picture shows the Weather Clock project in action:
+
+<img src="images/weather_clock/layout_1.jpg" alt="Weather Clock project" width="500">
+
+This photo of the project shows the Noritake Itron version of the project. Use a Matrix Orbital
+module for this version; the build and operating principles are the same.
 
 ### Config file
 
-To prepare the config file copy `config.py` to
-`config_local.py` and do these edits in the copy:
+To prepare the config file copy `weather_clock/config.py` to
+`weather_clock/config_local.py` and do these edits in the copy:
 
 - `wifi_ssid` - provide the name of your Wi-Fi network
 - `wifi_password` - provide the password to your Wi-Fi network
@@ -168,34 +172,3 @@ When you edit the configuration, you need to get API keys for timeapi.world and
 for OpenWeatherMap. Links are provided in the configuration file. The API
 keys are needed so that the weather and clock project can retrieve the proper
 time and weather from the internet.
-
-### The result
-
-Once you solder everything and configure everything in the config file,
-then you can run the main.py file. If the Wi-Fi and APIs access worked,
-then you should see the module showing all the weather and time data on the
-display.
-
-The following picture shows the Weather and Clock project in action:
-
-<img src="images/weather_clock.jpg" alt="Weather and clock project in action" width="500">
-
-The icon on the very bottom left is Wi-Fi status. The circle next to it
-indicates that it is cloudy weather. Empty circle would mean sunny, and there
-are also icons for rain and snow.
-
-The third icon, the arrow, prints for a minute after each data fetching
-from the Internet.
-
-<img src="images/weather_clock.gif" alt="Weather and clock project in action" width="500">
-
-
-
-
-
-
-
-
-
-
-
