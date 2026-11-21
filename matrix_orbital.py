@@ -147,6 +147,17 @@ class MatrixOrbital:
         """
         self.bus.write(str(data).encode())
 
+    def writeData(self, data):
+        """
+        Writes data to the display.
+
+        This Noritake Itron library compatibility method.
+        You do not need to use it. Use write() instead.
+
+        :param data: The data to write.
+        """
+        self.write(data)
+
     def writeCustomChar(self, slot, char_map, remember = False):
         """
         Writes a custom character to one of the 8 CGRAM locations.
@@ -214,12 +225,11 @@ class MatrixOrbital:
 
         :param column: The column to move the cursor to.
         :param row: The row to move the cursor to.
-
         """
         self.writeCommand([
             self.set_cursor_position,
-            column,
-            row,
+            column + 1,
+            row + 1,
         ])
 
     def cursorLeft(self, amount = 1):
@@ -396,7 +406,7 @@ class MatrixOrbital:
         """
         self.writeCommand([
             self.draw_vertical_bar_graph,
-            column,
+            column + 1,
             height
         ])
 
@@ -414,7 +424,7 @@ class MatrixOrbital:
         Draws a horizontal bar graph.
 
         :param column: The column at which to start (0-14).
-        :param row: The row in which to draw the bar graph (1-2).
+        :param row: The row in which to draw the bar graph (0-1).
         :param direction_from: Pass 'left' or 'right'.
         :param length: The length of the bar graph (0-100).
         """
@@ -425,8 +435,8 @@ class MatrixOrbital:
 
         self.writeCommand([
             self.draw_horizontal_bar_graph,
-            column,
-            row,
+            column + 1,
+            row + 1,
             directions[direction_from],
             length
         ])
@@ -542,6 +552,7 @@ class MatrixOrbital:
             'triangle_left': 0x1e,
             'triangle_up': 0x1f,
             # 20-2f - Standard special characters.
+            'snowflake': 0x2a,
             # 30-3f - Digits and standard special characters.
             # 40-4f - @ and uppercase letters.
             # 50-5f - Uppercase letters and standard special characters.
@@ -579,6 +590,8 @@ class MatrixOrbital:
             # c0-cf.
             # d0-df.
             'triple_line': 0xd0,
+            'storm': 0xd2,
+            'rain': 0xd9,
             'box_closed': 0xdb,
             'box_open2': 0xdc,
             'slide': 0xdd,

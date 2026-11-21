@@ -1,11 +1,15 @@
-class LargeDigits:
+class LargeDigits3Rows:
     """
-    A class containing big clock characters that occupy 3 rows:
-    - large digits (0-9)
-    - a large colon displayed between hours and minutes
-    - a large dash displayed when the time is not set
-    - a removal of a large digit or dash
-    - a removal of a colon.
+    A class containing big clock characters that occupy 3 rows.
+
+    Contains:
+    - Large digits (0-9)
+    - A large colon displayed between hours and minutes
+    - A large dash displayed when the time is not set
+    - A removal of a large digit or dash
+    - A removal of a colon.
+
+    :param disp: The display object used for printing large digits.
     """
     def __init__(self, disp):
         self.disp = disp
@@ -31,14 +35,14 @@ class LargeDigits:
         # Colon.
         disp.writeCustomChar(6, [0x00, 0x00, 0x00, 0x00, 0x0E, 0x0E, 0x0E, 0x00])
 
-    def largeDigit(self, digit, column, row = 1):
+    def largeDigit(self, digit, column, row = 0):
         """
         Prints a selected large digit at a specified position on the display.
         
-        Requires 4 lines display, because the digits take 3 lines.
-        It's best to print them at row 1, but row 2 will also work.
+        Requires a display with at least three rows.
+        Four rows display is needed when starting at the second row.
 
-        :param digit: The digit to print, pass 0-9 or colon/dash/erase/erase/erase_colon.
+        :param digit: The digit to print, pass 0-9 or colon/dash/erase/erase_colon.
         :param column: The column to print the digit at.
         :param row: The row to print the digit at.
         """
@@ -46,98 +50,98 @@ class LargeDigits:
         disp.setCursor(column, row)
 
         if digit == 0 or digit =='0':
-            disp.write([2, 3])
+            disp.writeData([2, 3])
             disp.setCursor(column, row + 1)
-            disp.write([4, 5])
+            disp.writeData([4, 5])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         elif digit == 1 or digit == '1':
-            disp.write([0, 4])
+            disp.writeData([0, 4])
             disp.setCursor(column, row + 1)
-            disp.write([32, 4])
+            disp.writeData([32, 4])
             disp.setCursor(column, row + 2)
-            disp.write([0, 1])
+            disp.writeData([0, 1])
 
         elif digit == 2 or digit == '2':
-            disp.write([1, 3])
+            disp.writeData([1, 3])
             disp.setCursor(column, row + 1)
-            disp.write([2, 1])
+            disp.writeData([2, 1])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         elif digit == 3 or digit == '3':
-            disp.write([1, 3])
+            disp.writeData([1, 3])
             disp.setCursor(column, row + 1)
-            disp.write([0, 3])
+            disp.writeData([0, 3])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         elif digit == 4 or digit == '4':
-            disp.write([4, 5])
+            disp.writeData([4, 5])
             disp.setCursor(column, row + 1)
-            disp.write([1, 3])
+            disp.writeData([1, 3])
             disp.setCursor(column, row + 2)
-            disp.write([32, 0])
+            disp.writeData([32, 0])
 
         elif digit == 5 or digit == '5':
-            disp.write([2, 1])
+            disp.writeData([2, 1])
             disp.setCursor(column, row + 1)
-            disp.write([1, 3])
+            disp.writeData([1, 3])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         elif digit == 6 or digit == '6':
-            disp.write([2, 1])
+            disp.writeData([2, 1])
             disp.setCursor(column, row + 1)
-            disp.write([2, 3])
+            disp.writeData([2, 3])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         elif digit == 7 or digit == '7':
-            disp.write([1, 3])
+            disp.writeData([1, 3])
             disp.setCursor(column, row + 1)
-            disp.write([32, 5])
+            disp.writeData([32, 5])
             disp.setCursor(column, row + 2)
-            disp.write([32, 0])
+            disp.writeData([32, 0])
 
         elif digit == 8 or digit == '8':
-            disp.write([2, 3])
+            disp.writeData([2, 3])
             disp.setCursor(column, row + 1)
-            disp.write([2, 3])
+            disp.writeData([2, 3])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         elif digit == 9 or digit == '9':
-            disp.write([2, 3])
+            disp.writeData([2, 3])
             disp.setCursor(column, row + 1)
-            disp.write([1, 3])
+            disp.writeData([1, 3])
             disp.setCursor(column, row + 2)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
 
         # Colon printed between hours and minutes.
         elif digit == 'colon':
-            disp.write(6)
+            disp.writeData([6])
             disp.setCursor(column, row + 1)
-            disp.write(6)
+            disp.writeData([6])
             disp.setCursor(column, row + 2)
             disp.write(' ')
 
         # Dash printed if the time is not set.
         elif digit == 'dash':
-            disp.write([32, 32])
+            disp.writeData([32, 32])
             disp.setCursor(column, row + 1)
-            disp.write([1, 1])
+            disp.writeData([1, 1])
             disp.setCursor(column, row + 2)
-            disp.write([32, 32])
+            disp.writeData([32, 32])
 
         # Erases digit/dash at a given position.
         elif digit == 'erase':
-            disp.write([32, 32])
+            disp.writeData([32, 32])
             disp.setCursor(column, row + 1)
-            disp.write([32, 32])
+            disp.writeData([32, 32])
             disp.setCursor(column, row + 2)
-            disp.write([32, 32])
+            disp.writeData([32, 32])
 
         # Erases colon at a given position.
         elif digit == 'erase_colon':

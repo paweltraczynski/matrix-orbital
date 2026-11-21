@@ -28,6 +28,7 @@ class Fetchers:
         # Stores the last date synchronization time in ms.
         self.date_last_fetch =  None
         self.date_last_attempt = None
+        self.date_last_failed = False
         # 2-hour interval converted to milliseconds.
         # This low interval is needed for daylight savings time changes.
         self.date_fetch_interval = 2 * 60 * 60 * 1000
@@ -48,7 +49,8 @@ class Fetchers:
         self.weather = {
             'temperature': 0,
             'humidity': 0,
-            'conditions': '',
+            'wind': 0,
+            'conditions': None,
             'success': False,
         }
 
@@ -158,25 +160,34 @@ class Fetchers:
 
                 # Save the timestamp of the successful synchronization.
                 self.date_last_fetch = time.ticks_ms()
+                self.date_last_failed = False
 
                 # Set a flag that will allow checking if any data
                 # was recently fetched from the Internet.
                 self.data_fetched = True
 
-                response.close()
                 print('Synchronized date and time.')
                 return True
 
             else:
-                response.close()
+                self.date_last_failed = True
+
                 print('Failed to synchronize date and time.')
                 return False
 
         except Exception as e:
-            if hasattr(response, 'close'):
-                response.close()
+            self.date_last_failed = True
+
             print('Date and time synchronization error:', e)
             return False
+
+        finally:
+            # Close the response without changing the synchronization result.
+            if hasattr(response, 'close'):
+                try:
+                    response.close()
+                except Exception as e:
+                    print('Date and time response cleanup error:', e)
 
     def getDateTime(self):
         """
@@ -229,7 +240,7 @@ class Fetchers:
 
     def fetchWeather(self):
         """
-        Fetches the weather data for from the OpenWeatherMap API.
+        Fetches the weather data from the OpenWeatherMap API.
         """
         print('Fetching weather data from the OpenWeatherMap.')
 
@@ -244,7 +255,8 @@ class Fetchers:
 
         temperature = 0
         humidity = 0
-        conditions = ''
+        wind = 0
+        conditions = None
         success = False
 
         self.weather_last_attempt = time.ticks_ms()
@@ -252,7 +264,7 @@ class Fetchers:
         try:
             weather = self.urlGetJson(weather_url, params)
 
-            # Weather API deta structure.
+            # Weather API data structure.
             # timezone => 7200
             # sys => Dict {
             #   type => 2
@@ -300,7 +312,8 @@ class Fetchers:
             if weather and isinstance(weather, dict):
                 temperature = round(weather['main']['temp'], 1)
                 humidity = round(weather['main']['humidity'])
-                conditions = weather['weather'][0]['main']
+                wind = round(weather['wind']['speed'], 1)
+                conditions = weather['weather'][0]['id']
                 success = True
 
                 # Save the timestamp of the successful synchronization.
@@ -321,6 +334,7 @@ class Fetchers:
         self.weather = {
             'temperature': temperature,
             'humidity': humidity,
+            'wind': wind,
             'conditions': conditions,
             'success': success,
         }
